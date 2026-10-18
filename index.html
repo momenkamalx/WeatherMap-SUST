@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="WeatherMap search for a location and view the weather there on a map."
+    />
+    <title>WeatherMap</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="site-header">
+        <h1>WeatherMap</h1>
+        <p>Search for a place and view the weather there on a map.</p>
+      </header>
+
+      <section class="search-panel" aria-labelledby="search-heading">
+        <h2 id="search-heading">Find a location</h2>
+        <form id="location-search-form" novalidate>
+          <label for="location-search">Location</label>
+          <div class="search-controls">
+            <input
+              id="location-search"
+              name="location"
+              type="search"
+              placeholder="e.g., Khartoum, Sudan"
+              autocomplete="off"
+              required
+            />
+            <button type="submit">Search</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="map-panel" aria-label="Weather map">
+        <div id="map" role="region" aria-label="Map of the selected location"></div>
+      </section>
+
+      <div id="loading-indicator" role="status" aria-live="polite" hidden>
+        Loading weather information…
+      </div>
+      <div id="message-area" role="alert" aria-live="assertive"></div>
+
+      <section id="weather-results" aria-labelledby="weather-results-heading" hidden>
+        <h2 id="weather-results-heading">Current weather</h2>
+        <div id="weather-details"></div>
+      </section>
+    </main>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>
