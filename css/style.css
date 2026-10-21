@@ -343,6 +343,83 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+.weather-share-status {
+  margin: 0.6rem 0 0;
+  color: #d9caec;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.weather-share-status:empty {
+  margin: 0;
+}
+
+.favorites-panel {
+  margin-bottom: 1.5rem;
+  border: 1px solid #5a3d7c;
+  border-radius: 1.25rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: rgb(37 23 58 / 92%);
+  box-shadow: 0 0.75rem 2rem rgb(5 2 12 / 38%);
+}
+
+.favorites-panel h2 {
+  margin: 0 0 1rem;
+  color: #f2e9ff;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+#favorites-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.favorite-item {
+  display: flex;
+  gap: 0.35rem;
+  max-width: 100%;
+}
+
+.favorite-select,
+.favorite-remove {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.875rem;
+}
+
+.favorite-select {
+  width: auto;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-remove {
+  width: 2.5rem;
+  padding: 0;
+  border-color: #8062a8;
+  background: #3a2358;
+  box-shadow: none;
+}
+
+.favorite-remove:hover {
+  background: #5a2f6f;
+}
+
+.weather-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
 @media (min-width: 48rem) {
   .page-shell {
     width: min(100% - 4rem, 72rem);

@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadingIndicator = document.querySelector("#loading-indicator");
   const messageArea = document.querySelector("#message-area");
   const weatherResults = document.querySelector("#weather-results");
+  const favoritesPanel = document.querySelector("#favorites-panel");
+  const favoritesList = document.querySelector("#favorites-list");
 
   if (
     !searchForm ||
@@ -23,6 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
     !loadingIndicator ||
     !messageArea ||
     !weatherResults ||
+    !favoritesPanel ||
+    !favoritesList ||
     typeof L === "undefined"
   ) {
     console.error("WeatherMap could not initialize the map.");
@@ -46,6 +50,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let suggestionController = null;
   let searchMarker = null;
   let searchRequestId = 0;
+  const favoritesStorageKey = "weathermap-favorites";
+  const maxFavorites = 12;
+  let favorites = [];
+  let activeFavoriteButton = null;
 
   const map = L.map(mapElement).setView(initialCoordinates, initialZoom);
 
@@ -254,7 +262,198 @@ document.addEventListener("DOMContentLoaded", () => {
     return icon;
   }
 
-  function createWeatherPopup(weather) {
+    function getAppUrl() {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
+    return /^https?:$/.test(url.protocol) ? url.href : "";
+  }
+
+  function buildShareSummary(weather) {
+    return `${weather.locationName}: ${weather.temperature.toFixed(1)} °C, ${weather.conditionDescription}. Cloud coverage ${weather.cloudCoverage}%, humidity ${weather.humidity}%, wind speed ${weather.windSpeed} m/s.`;
+  }
+
+  async function copyToClipboard(text) {
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+      return false;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function shareWeather(weather, statusElement) {
+    const summary = buildShareSummary(weather);
+    const appUrl = getAppUrl();
+
+    if (typeof navigator.share === "function") {
+      const shareData = { title: `WeatherMap: ${weather.locationName}`, text: summary };
+
+      if (appUrl) {
+        shareData.url = appUrl;
+      }
+
+      try {
+        if (typeof navigator.canShare !== "function" || navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+          return;
+        }
+      } catch (error) {
+        if (error.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
+    const copied = await copyToClipboard(appUrl ? `${summary} ${appUrl}` : summary);
+    statusElement.textContent = copied
+      ? "Weather summary copied to clipboard."
+      : "Sharing is not available in this browser.";
+  }
+
+  function normalizeFavorite(item) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+
+    const label = typeof item.label === "string" ? item.label.trim() : "";
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    const latitude = Number.parseFloat(item.latitude);
+    const longitude = Number.parseFloat(item.longitude);
+
+    if (
+      !label ||
+      !name ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      Math.abs(latitude) > 90 ||
+      Math.abs(longitude) > 180
+    ) {
+      return null;
+    }
+
+    return { name, latitude, longitude, label };
+  }
+
+  function loadFavorites() {
+    try {
+      const stored = window.localStorage.getItem(favoritesStorageKey);
+
+      if (!stored) {
+        return [];
+      }
+
+      const parsed = JSON.parse(stored);
+
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed
+        .map(normalizeFavorite)
+        .filter(Boolean)
+        .filter((favorite, index, values) => {
+          const key = favorite.label.toLocaleLowerCase();
+          return values.findIndex((item) => item.label.toLocaleLowerCase() === key) === index;
+        })
+        .slice(0, maxFavorites);
+    } catch {
+      return [];
+    }
+  }
+
+  function saveFavorites() {
+    try {
+      window.localStorage.setItem(favoritesStorageKey, JSON.stringify(favorites));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function isFavorite(label) {
+    const key = label.toLocaleLowerCase();
+    return favorites.some((favorite) => favorite.label.toLocaleLowerCase() === key);
+  }
+
+  function syncFavoriteButton() {
+    if (!activeFavoriteButton) {
+      return;
+    }
+
+    activeFavoriteButton.textContent = isFavorite(activeFavoriteButton.dataset.label)
+      ? "Remove favorite"
+      : "Save favorite";
+  }
+
+  function renderFavorites() {
+    favoritesList.replaceChildren();
+    favoritesPanel.hidden = favorites.length === 0;
+
+    favorites.forEach((favorite, index) => {
+      const item = document.createElement("li");
+      item.className = "favorite-item";
+
+      const shortName = favorite.label.split(",")[0].trim() || favorite.label;
+
+      const selectButton = document.createElement("button");
+      selectButton.type = "button";
+      selectButton.className = "favorite-select";
+      selectButton.dataset.index = String(index);
+      selectButton.title = favorite.label;
+      selectButton.textContent = shortName;
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "favorite-remove";
+      removeButton.dataset.index = String(index);
+      removeButton.setAttribute("aria-label", `Remove ${shortName}`);
+      removeButton.textContent = "×";
+
+      item.append(selectButton, removeButton);
+      favoritesList.append(item);
+    });
+
+    syncFavoriteButton();
+  }
+
+  function commitFavorites() {
+    const saved = saveFavorites();
+    renderFavorites();
+
+    if (!saved) {
+      showMessage("Favorites could not be saved in this browser.");
+    }
+  }
+
+  function toggleFavorite(location) {
+    const key = location.label.toLocaleLowerCase();
+    const existingIndex = favorites.findIndex((favorite) => favorite.label.toLocaleLowerCase() === key);
+
+    if (existingIndex >= 0) {
+      favorites.splice(existingIndex, 1);
+    } else {
+      if (favorites.length >= maxFavorites) {
+        showMessage(`You can save up to ${maxFavorites} favorites. Remove one first.`);
+        return;
+      }
+
+      favorites.push({
+        name: location.name,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        label: location.label,
+      });
+    }
+
+    commitFavorites();
+  }
+
+  function createWeatherPopup(weather, location) {
     const content = document.createElement("section");
     content.className = "weather-popup-content";
 
@@ -270,12 +469,36 @@ document.addEventListener("DOMContentLoaded", () => {
     appendWeatherDetail(details, "Humidity", `${weather.humidity}%`);
     appendWeatherDetail(details, "Wind speed", `${weather.windSpeed} m/s`);
 
+    const actions = document.createElement("div");
+    actions.className = "weather-popup-actions";
+
     const shareButton = document.createElement("button");
     shareButton.className = "weather-share-button";
     shareButton.type = "button";
     shareButton.textContent = "Share";
 
-    content.append(heading, weatherVisual, details, shareButton);
+    const shareStatus = document.createElement("p");
+    shareStatus.className = "weather-share-status";
+    shareStatus.setAttribute("role", "status");
+    shareStatus.setAttribute("aria-live", "polite");
+
+    shareButton.addEventListener("click", () => {
+      shareStatus.textContent = "";
+      shareWeather(weather, shareStatus);
+    });
+
+    const favoriteButton = document.createElement("button");
+    favoriteButton.className = "weather-share-button weather-favorite-button";
+    favoriteButton.type = "button";
+    favoriteButton.dataset.label = location.label;
+    favoriteButton.textContent = isFavorite(location.label) ? "Remove favorite" : "Save favorite";
+    favoriteButton.addEventListener("click", () => {
+      toggleFavorite(location);
+    });
+    activeFavoriteButton = favoriteButton;
+
+    actions.append(shareButton, favoriteButton);
+    content.append(heading, weatherVisual, details, actions, shareStatus);
     return content;
   }
 
@@ -289,7 +512,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (weather) {
       searchMarker
-        .bindPopup(createWeatherPopup(weather), { className: "weather-popup" })
+        .bindPopup(createWeatherPopup(weather, location), { className: "weather-popup" })
         .openPopup();
     }
   }
@@ -683,4 +906,37 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
+
+  favoritesList.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+
+    if (!button || !favoritesList.contains(button)) {
+      return;
+    }
+
+    const index = Number.parseInt(button.dataset.index, 10);
+    const favorite = favorites[index];
+
+    if (!favorite) {
+      return;
+    }
+
+    if (button.classList.contains("favorite-remove")) {
+      favorites.splice(index, 1);
+      commitFavorites();
+      return;
+    }
+
+    if (searchButton.disabled) {
+      return;
+    }
+
+    selectedLocation = favorite;
+    locationInput.value = favorite.label;
+    searchForm.requestSubmit();
+  });
+
+  favorites = loadFavorites();
+  renderFavorites();
+
 });
