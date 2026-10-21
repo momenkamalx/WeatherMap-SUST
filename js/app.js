@@ -115,6 +115,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return { name, latitude, longitude, label: name };
   }
 
+  function getSearchLanguage(query) {
+    return /[\u0600-\u06FF]/.test(query) ? "ar" : "en";
+  }
+
   function formatSuggestion(result) {
     if (!result || typeof result !== "object" || typeof result.name !== "string") {
       return null;
@@ -220,6 +224,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  const weatherLabels = {
+    en: {
+      temperature: "Temperature",
+      cloudCoverage: "Cloud coverage",
+      humidity: "Humidity",
+      windSpeed: "Wind speed",
+      windUnit: "m/s",
+    },
+    ar: {
+      temperature: "درجة الحرارة",
+      cloudCoverage: "الغيوم",
+      humidity: "الرطوبة",
+      windSpeed: "سرعة الرياح",
+      windUnit: "م/ث",
+    },
+  };
+
   function appendWeatherDetail(details, label, value) {
     const term = document.createElement("dt");
     term.textContent = label;
@@ -229,23 +250,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function createWeatherVisual(weather) {
-    if (weather.iconCode === "01n") {
-      const condition = document.createElement("div");
-      condition.className = "weather-popup-condition";
-
-      const symbol = document.createElement("span");
-      symbol.className = "weather-popup-condition-symbol";
-      symbol.setAttribute("aria-hidden", "true");
-      symbol.textContent = "☾";
-
-      const label = document.createElement("span");
-      label.className = "weather-popup-condition-label";
-      label.textContent = weather.conditionDescription;
-
-      condition.append(symbol, label);
-      return condition;
-    }
-
     const icon = document.createElement("img");
     icon.className = "weather-popup-icon";
     icon.alt = `Weather conditions for ${weather.locationName}`;
@@ -262,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return icon;
   }
 
-    function getAppUrl() {
+  function getAppUrl() {
     const url = new URL(window.location.href);
     url.search = "";
     url.hash = "";
@@ -462,12 +466,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const weatherVisual = createWeatherVisual(weather);
 
+    const labels = weatherLabels[weather.language] || weatherLabels.en;
+
+    if (weather.language === "ar") {
+      content.dir = "rtl";
+      content.lang = "ar";
+    }
+
     const details = document.createElement("dl");
     details.className = "weather-popup-details";
-    appendWeatherDetail(details, "Temperature", `${weather.temperature.toFixed(1)} °C`);
-    appendWeatherDetail(details, "Cloud coverage", `${weather.cloudCoverage}%`);
-    appendWeatherDetail(details, "Humidity", `${weather.humidity}%`);
-    appendWeatherDetail(details, "Wind speed", `${weather.windSpeed} m/s`);
+    appendWeatherDetail(details, labels.temperature, `${weather.temperature.toFixed(1)} °C`);
+    appendWeatherDetail(details, labels.cloudCoverage, `${weather.cloudCoverage}%`);
+    appendWeatherDetail(details, labels.humidity, `${weather.humidity}%`);
+    appendWeatherDetail(details, labels.windSpeed, `${weather.windSpeed} ${labels.windUnit}`);
 
     const actions = document.createElement("div");
     actions.className = "weather-popup-actions";
@@ -530,6 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
       format: "jsonv2",
       limit: "1",
       q: query,
+      "accept-language": getSearchLanguage(query),
     });
     let response;
 
@@ -573,7 +585,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return location;
   }
 
-  async function fetchCurrentWeather(location) {
+  async function fetchCurrentWeather(location, language = "en") {
     const apiKey = getApiKey();
 
     if (!apiKey) {
@@ -584,6 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
       lat: String(location.latitude),
       lon: String(location.longitude),
       units: "metric",
+      lang: language,
       appid: apiKey,
     });
     let response;
@@ -620,7 +633,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const parameters = new URLSearchParams({
       name: query,
       count: "5",
-      language: "en",
+      language: getSearchLanguage(query),
       format: "json",
     });
     let response;
@@ -691,6 +704,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const option = document.createElement("li");
       option.id = `location-suggestion-${index}`;
       option.setAttribute("role", "option");
+      option.dir = "auto";
       option.setAttribute("aria-selected", "false");
       option.dataset.index = String(index);
       option.textContent = location.label;
@@ -858,6 +872,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const requestId = ++searchRequestId;
+    const language = getSearchLanguage(query);
     const isCurrentSearch = () => requestId === searchRequestId;
 
     clearMessage();
@@ -881,10 +896,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       storeLocation(location);
       showLocationOnMap(location);
-      const weather = await fetchCurrentWeather(location);
+      const weather = await fetchCurrentWeather(location, language);
 
       if (!isCurrentSearch()) {
         return;
+      }
+
+      weather.language = language;
+
+      if (language === "ar") {
+        weather.locationName = location.name.split(",")[0].trim() || weather.locationName;
       }
 
       storeWeather(weather);
@@ -938,5 +959,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   favorites = loadFavorites();
   renderFavorites();
-
 });

@@ -42,13 +42,18 @@ input:focus-visible {
 }
 
 .site-header h1 {
+  display: inline-block;
   margin: 0;
+  border-radius: 0.75rem;
+  padding: 0.35rem 1.25rem;
   color: #f5edff;
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1.15;
+  background: rgb(37 23 58 / 55%);
   text-shadow: 0 2px 10px rgb(210 156 255 / 28%);
+  box-shadow: 0 0.5rem 1.25rem rgb(5 2 12 / 40%);
 }
 
 .site-header p {
@@ -166,6 +171,8 @@ input {
   padding: 0.7rem 0.95rem;
   color: #f7f1ff;
   background: #211532;
+  -webkit-appearance: none;
+  appearance: none;
   transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
 }
 
@@ -193,6 +200,8 @@ button {
   background: #7f3eb2;
   box-shadow: 0 0.35rem 0.8rem rgb(127 62 178 / 35%);
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
   transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 
@@ -219,7 +228,7 @@ button:disabled {
 #map {
   height: 70vh;
   overflow: hidden;
-  border: 3px solid #9b69ca;
+  border: 3px solid #1e3a8a;
   border-radius: 1.25rem;
   background: linear-gradient(135deg, #2e1c49 0%, #462767 48%, #25173c 100%);
   box-shadow: 0 1rem 2.25rem rgb(5 2 12 / 48%);
@@ -239,6 +248,29 @@ button:disabled {
   border: 1px solid #8062a8;
   color: #eadcff;
   background: #2a1a42;
+}
+
+#loading-indicator:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+#loading-indicator::before {
+  content: "";
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 3px solid #8062a8;
+  border-top-color: #f4edff;
+  border-radius: 50%;
+  animation: weather-spin 0.8s linear infinite;
+}
+
+@keyframes weather-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 #message-area:not(:empty) {
@@ -325,7 +357,7 @@ button:disabled {
   margin: 0.25rem 0 1rem;
   color: #d9caec;
   font-size: 0.875rem;
-  text-align: left;
+  text-align: start;
 }
 
 .weather-popup-details dt {
@@ -334,7 +366,7 @@ button:disabled {
 
 .weather-popup-details dd {
   margin: 0;
-  text-align: right;
+  text-align: end;
 }
 
 #map .weather-share-button {
