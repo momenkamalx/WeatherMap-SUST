@@ -35,20 +35,20 @@ WeatherMap-SUST/
 
 ## Technologies
 
-- **HTML:**
-- **CSS:**
+- **HTML**
+- **CSS**
 - **JS**
-- **Leaflet:** 
-- **API, Promises and await:** 
-- **Nominatim:**
-- **OpenStreetMap:**
-- **Geocoding API:**
-- **OpenWeatherMap Current Weather API:**
+- **Leaflet** 
+- **API, Promises and await** 
+- **Nominatim**
+- **OpenStreetMap**
+- **Geocoding API**
+- **OpenWeatherMap Current Weather API**
 
 ## JavaScript
 
-- **app.js:**
-- **config.js:** 
+- **app.js**
+- **config.js** 
 
 
 
