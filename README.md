@@ -18,7 +18,7 @@ WeatherMap-SUST/
 │   └── style.css
 └── js/
     ├── app.js
-    └── config.js
+    └── config.local.js
 ```
 
 
