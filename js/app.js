@@ -1,9 +1,7 @@
 "use strict";
 document.addEventListener("DOMContentLoaded", () => {
   
-// the HTML elements
 // Finds the form input map messages suggestions favorites
-  
   const searchForm = document.querySelector("#location-search-form");
   const locationInput = document.querySelector("#location-search");
   const searchButton = searchForm?.querySelector('button[type="submit"]');
@@ -46,8 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const suggestionCache = new Map();
   const requestInterval = 1000;
   const suggestionDelay = 350;
-//change while the app runs
-// Tracks request timing, the selected location, suggestions, active option,
+// Tracks request timing, the selected location, suggestions, active option
 // the map marker, and overlapping searches.
   let lastRequestAt = 0;
   let selectedLocation = null;
@@ -266,12 +263,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return icon;
   }
   //Get the app URL
-  function getAppUrl() {
-    const url = new URL(window.location.href);
-    url.search = "";
-    url.hash = "";
-    return /^https?:$/.test(url.protocol) ? url.href : "";
+function getAppUrl() {
+  const url = new URL(window.location.href);
+
+  if (
+    !/^https?:$/.test(url.protocol) ||
+    url.hostname === "localhost" ||
+    url.hostname.endsWith(".localhost") ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "::1"
+  ) {
+    return "";
   }
+
+  url.search = "";
+  url.hash = "";
+  return url.href;
+}
   //do the weather summary
   function buildShareSummary(weather) {
     return `${weather.locationName}: ${weather.temperature.toFixed(1)} °C, ${weather.conditionDescription}. Cloud coverage ${weather.cloudCoverage}%, humidity ${weather.humidity}%, wind speed ${weather.windSpeed} m/s.`;
@@ -290,29 +298,40 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   //share weather info
   async function shareWeather(weather, statusElement) {
-    const summary = buildShareSummary(weather);
-    const appUrl = getAppUrl();
-    if (typeof navigator.share === "function") {
-      const shareData = { title: `WeatherMap: ${weather.locationName}`, text: summary };
-      if (appUrl) {
-        shareData.url = appUrl;
+  const summary = buildShareSummary(weather);
+  const appUrl = getAppUrl();
+
+  const shareText = appUrl
+    ? `${summary}\n\nOpen WeatherMap: ${appUrl}`
+    : summary;
+
+  if (typeof navigator.share === "function") {
+    const shareData = {
+      title: `WeatherMap: ${weather.locationName}`,
+      text: shareText,
+    };
+
+    try {
+      if (
+        typeof navigator.canShare !== "function" ||
+        navigator.canShare(shareData)
+      ) {
+        await navigator.share(shareData);
+        return;
       }
-      try {
-        if (typeof navigator.canShare !== "function" || navigator.canShare(shareData)) {
-          await navigator.share(shareData);
-          return;
-        }
-      } catch (error) {
-        if (error.name === "AbortError") {
-          return;
-        }
+    } catch (error) {
+      if (error.name === "AbortError") {
+        return;
       }
     }
-    const copied = await copyToClipboard(appUrl ? `${summary} ${appUrl}` : summary);
-    statusElement.textContent = copied
-      ? "Weather summary copied to clipboard."
-      : "Sharing is not available in this browser.";
   }
+
+  const copied = await copyToClipboard(shareText);
+
+  statusElement.textContent = copied
+    ? "Weather summary copied to clipboard."
+    : "Sharing is not available in this browser.";
+}
   //Checks that the favorite has a valid name  label coordinates
   function normalizeFavorite(item) {
     if (!item || typeof item !== "object") {
@@ -470,11 +489,25 @@ document.addEventListener("DOMContentLoaded", () => {
     favoriteButton.type = "button";
     favoriteButton.dataset.label = location.label;
     favoriteButton.textContent = isFavorite(location.label) ? "Remove favorite" : "Save favorite";
+    // Create a separate button to copy the weather summary.
+    const copyButton = document.createElement("button");
+    copyButton.className = "weather-share-button weather-copy-button";
+    copyButton.type = "button";
+    copyButton.textContent = "Copy weather";
+
+    copyButton.addEventListener("click", async () => {
+      const summary = buildShareSummary(weather);
+      const copied = await copyToClipboard(summary);
+
+      shareStatus.textContent = copied
+        ? "Weather summary copied to clipboard."
+        : "Unable to copy. Please check your browser permissions.";
+  });
     favoriteButton.addEventListener("click", () => {
       toggleFavorite(location);
     });
     activeFavoriteButton = favoriteButton;
-    actions.append(shareButton, favoriteButton);
+    actions.append(shareButton, copyButton, favoriteButton);
     content.append(heading, weatherVisual, details, actions, shareStatus);
     return content;
   }
