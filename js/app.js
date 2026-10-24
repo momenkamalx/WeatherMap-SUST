@@ -1,6 +1,9 @@
 "use strict";
-
 document.addEventListener("DOMContentLoaded", () => {
+  
+// the HTML elements
+// Finds the form input map messages suggestions favorites
+  
   const searchForm = document.querySelector("#location-search-form");
   const locationInput = document.querySelector("#location-search");
   const searchButton = searchForm?.querySelector('button[type="submit"]');
@@ -13,7 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const weatherResults = document.querySelector("#weather-results");
   const favoritesPanel = document.querySelector("#favorites-panel");
   const favoritesList = document.querySelector("#favorites-list");
-
+  
+//Check elements
+// Stops if a HTML element or Leaflet is missing
   if (
     !searchForm ||
     !locationInput ||
@@ -32,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
     console.error("WeatherMap could not initialize the map.");
     return;
   }
-
   const initialCoordinates = [15.5007, 32.5599];
   const initialZoom = 6;
   const nominatimSearchUrl = "https://nominatim.openstreetmap.org/search";
@@ -42,6 +46,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const suggestionCache = new Map();
   const requestInterval = 1000;
   const suggestionDelay = 350;
+//change while the app runs
+// Tracks request timing, the selected location, suggestions, active option,
+// the map marker, and overlapping searches.
   let lastRequestAt = 0;
   let selectedLocation = null;
   let suggestions = [];
@@ -50,91 +57,86 @@ document.addEventListener("DOMContentLoaded", () => {
   let suggestionController = null;
   let searchMarker = null;
   let searchRequestId = 0;
+//Favorites settings
+// maximum number of favorite
+// Stores the favorites and the favorite button.
   const favoritesStorageKey = "weathermap-favorites";
   const maxFavorites = 12;
   let favorites = [];
   let activeFavoriteButton = null;
-
+//Create the map and the default coordinates and adds open street map tiles
   const map = L.map(mapElement).setView(initialCoordinates, initialZoom);
-
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
-
+// show a message in the message area.
   function showMessage(message) {
     messageArea.textContent = message;
   }
-
+// Removes any previously displayed message.
   function clearMessage() {
     messageArea.textContent = "";
   }
-
+  // Shows or hides the loading indicator and disables the search button
   function setLoading(isLoading) {
     loadingIndicator.hidden = !isLoading;
     searchButton.disabled = isLoading;
   }
-
+  //pause before making a request
   function wait(milliseconds) {
     return new Promise((resolve) => {
       window.setTimeout(resolve, milliseconds);
     });
   }
-
   async function waitForRequestSlot() {
     const elapsed = Date.now() - lastRequestAt;
     const remainingDelay = Math.max(0, requestInterval - elapsed);
-
     if (remainingDelay > 0) {
       await wait(remainingDelay);
     }
-
     lastRequestAt = Date.now();
   }
-
+// Creates an Error with a code and stores the API message.
+//decide which error message to display.
   function createServiceError(code, providerMessage = "") {
     const error = new Error(code);
     error.providerMessage = providerMessage;
     return error;
   }
-
+//converts coordinates to numbers
+// and returns a location object invalid results return null
   function normalizeLocation(result) {
     if (!result || typeof result !== "object" || typeof result.display_name !== "string") {
       return null;
     }
-
     const latitude = Number.parseFloat(result.lat);
     const longitude = Number.parseFloat(result.lon);
     const name = result.display_name.trim();
-
     if (!name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       return null;
     }
-
     return { name, latitude, longitude, label: name };
   }
-
+  // Returns arabic if contains arabic characters otherwise english.
   function getSearchLanguage(query) {
     return /[\u0600-\u06FF]/.test(query) ? "ar" : "en";
   }
-
+//location suggestions
   function formatSuggestion(result) {
     if (!result || typeof result !== "object" || typeof result.name !== "string") {
       return null;
     }
-
     const latitude = Number.parseFloat(result.latitude);
     const longitude = Number.parseFloat(result.longitude);
     const parts = [result.name, result.admin1, result.country]
       .filter((part) => typeof part === "string" && part.trim())
       .map((part) => part.trim())
       .filter((part, index, values) => values.indexOf(part) === index);
-
     if (!parts.length || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       return null;
     }
-
     return {
       name: result.name.trim(),
       latitude,
@@ -142,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       label: parts.join(", "),
     };
   }
-
+  //fetch weather data
   function normalizeWeather(payload, fallbackName) {
     const temperature = Number.parseFloat(payload?.main?.temp);
     const cloudCoverage = Number.parseFloat(payload?.clouds?.all);
@@ -151,7 +153,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const iconCode = payload?.weather?.[0]?.icon;
     const conditionDescription = payload?.weather?.[0]?.description;
     const locationName = typeof payload?.name === "string" && payload.name.trim() ? payload.name.trim() : fallbackName;
-
     if (
       !locationName ||
       !Number.isFinite(temperature) ||
@@ -165,7 +166,6 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
       throw createServiceError("weather-malformed");
     }
-
     return {
       locationName,
       temperature,
@@ -177,24 +177,24 @@ document.addEventListener("DOMContentLoaded", () => {
       iconUrl: `https://openweathermap.org/img/wn/${iconCode}@2x.png`,
     };
   }
-
+  //Get the API key
   function getApiKey() {
     const apiKey = window.WEATHERMAP_CONFIG?.openWeatherMapApiKey;
     return typeof apiKey === "string" ? apiKey.trim() : "";
   }
-
+  //Store location data
   function storeLocation(location) {
     searchForm.dataset.locationName = location.name;
     searchForm.dataset.latitude = String(location.latitude);
     searchForm.dataset.longitude = String(location.longitude);
   }
-
+  //Clear stored location data
   function clearStoredLocation() {
     delete searchForm.dataset.locationName;
     delete searchForm.dataset.latitude;
     delete searchForm.dataset.longitude;
   }
-
+  //Store weather data
   function storeWeather(weather) {
     weatherResults.dataset.locationName = weather.locationName;
     weatherResults.dataset.temperature = String(weather.temperature);
@@ -205,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
     weatherResults.dataset.conditionDescription = weather.conditionDescription;
     weatherResults.dataset.iconUrl = weather.iconUrl;
   }
-
+  //Clear stored weather data
   function clearStoredWeather() {
     delete weatherResults.dataset.locationName;
     delete weatherResults.dataset.temperature;
@@ -216,14 +216,14 @@ document.addEventListener("DOMContentLoaded", () => {
     delete weatherResults.dataset.conditionDescription;
     delete weatherResults.dataset.iconUrl;
   }
-
+  //Remove the search marker
   function clearSearchMarker() {
     if (searchMarker) {
       map.removeLayer(searchMarker);
       searchMarker = null;
     }
   }
-
+  //Weather labels details in english and arabic
   const weatherLabels = {
     en: {
       temperature: "Temperature",
@@ -240,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
       windUnit: "م/ث",
     },
   };
-
+  //Create a weather detail
   function appendWeatherDetail(details, label, value) {
     const term = document.createElement("dt");
     term.textContent = label;
@@ -248,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
     description.textContent = value;
     details.append(term, description);
   }
-
+  //create weather icon
   function createWeatherVisual(weather) {
     const icon = document.createElement("img");
     icon.className = "weather-popup-icon";
@@ -265,23 +265,22 @@ document.addEventListener("DOMContentLoaded", () => {
     icon.src = weather.iconUrl;
     return icon;
   }
-
+  //Get the app URL
   function getAppUrl() {
     const url = new URL(window.location.href);
     url.search = "";
     url.hash = "";
     return /^https?:$/.test(url.protocol) ? url.href : "";
   }
-
+  //do the weather summary
   function buildShareSummary(weather) {
     return `${weather.locationName}: ${weather.temperature.toFixed(1)} °C, ${weather.conditionDescription}. Cloud coverage ${weather.cloudCoverage}%, humidity ${weather.humidity}%, wind speed ${weather.windSpeed} m/s.`;
   }
-
+  //Copy text to the clipboard
   async function copyToClipboard(text) {
     if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
       return false;
     }
-
     try {
       await navigator.clipboard.writeText(text);
       return true;
@@ -289,18 +288,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return false;
     }
   }
-
+  //share weather info
   async function shareWeather(weather, statusElement) {
     const summary = buildShareSummary(weather);
     const appUrl = getAppUrl();
-
     if (typeof navigator.share === "function") {
       const shareData = { title: `WeatherMap: ${weather.locationName}`, text: summary };
-
       if (appUrl) {
         shareData.url = appUrl;
       }
-
       try {
         if (typeof navigator.canShare !== "function" || navigator.canShare(shareData)) {
           await navigator.share(shareData);
@@ -312,23 +308,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-
     const copied = await copyToClipboard(appUrl ? `${summary} ${appUrl}` : summary);
     statusElement.textContent = copied
       ? "Weather summary copied to clipboard."
       : "Sharing is not available in this browser.";
   }
-
+  //Checks that the favorite has a valid name  label coordinates
   function normalizeFavorite(item) {
     if (!item || typeof item !== "object") {
       return null;
     }
-
     const label = typeof item.label === "string" ? item.label.trim() : "";
     const name = typeof item.name === "string" ? item.name.trim() : "";
     const latitude = Number.parseFloat(item.latitude);
     const longitude = Number.parseFloat(item.longitude);
-
     if (
       !label ||
       !name ||
@@ -339,24 +332,19 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
       return null;
     }
-
     return { name, latitude, longitude, label };
   }
-
+  //Load favorites
   function loadFavorites() {
     try {
       const stored = window.localStorage.getItem(favoritesStorageKey);
-
       if (!stored) {
         return [];
       }
-
       const parsed = JSON.parse(stored);
-
       if (!Array.isArray(parsed)) {
         return [];
       }
-
       return parsed
         .map(normalizeFavorite)
         .filter(Boolean)
@@ -369,7 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return [];
     }
   }
-
+  //Save favorites
   function saveFavorites() {
     try {
       window.localStorage.setItem(favoritesStorageKey, JSON.stringify(favorites));
@@ -378,66 +366,56 @@ document.addEventListener("DOMContentLoaded", () => {
       return false;
     }
   }
-
   function isFavorite(label) {
     const key = label.toLocaleLowerCase();
     return favorites.some((favorite) => favorite.label.toLocaleLowerCase() === key);
   }
-
+  //Update the favorite button
   function syncFavoriteButton() {
     if (!activeFavoriteButton) {
       return;
     }
-
     activeFavoriteButton.textContent = isFavorite(activeFavoriteButton.dataset.label)
       ? "Remove favorite"
       : "Save favorite";
   }
-
+  //show the favorites list
   function renderFavorites() {
     favoritesList.replaceChildren();
     favoritesPanel.hidden = favorites.length === 0;
-
     favorites.forEach((favorite, index) => {
       const item = document.createElement("li");
       item.className = "favorite-item";
-
       const shortName = favorite.label.split(",")[0].trim() || favorite.label;
-
       const selectButton = document.createElement("button");
       selectButton.type = "button";
       selectButton.className = "favorite-select";
       selectButton.dataset.index = String(index);
       selectButton.title = favorite.label;
       selectButton.textContent = shortName;
-
       const removeButton = document.createElement("button");
       removeButton.type = "button";
       removeButton.className = "favorite-remove";
       removeButton.dataset.index = String(index);
       removeButton.setAttribute("aria-label", `Remove ${shortName}`);
       removeButton.textContent = "×";
-
       item.append(selectButton, removeButton);
       favoritesList.append(item);
     });
-
     syncFavoriteButton();
   }
-
+  // Saves the updated favorites and refreshes the list
   function commitFavorites() {
     const saved = saveFavorites();
     renderFavorites();
-
     if (!saved) {
       showMessage("Favorites could not be saved in this browser.");
     }
   }
-
+  //Add or remove a favorite
   function toggleFavorite(location) {
     const key = location.label.toLocaleLowerCase();
     const existingIndex = favorites.findIndex((favorite) => favorite.label.toLocaleLowerCase() === key);
-
     if (existingIndex >= 0) {
       favorites.splice(existingIndex, 1);
     } else {
@@ -445,7 +423,6 @@ document.addEventListener("DOMContentLoaded", () => {
         showMessage(`You can save up to ${maxFavorites} favorites. Remove one first.`);
         return;
       }
-
       favorites.push({
         name: location.name,
         latitude: location.latitude,
@@ -453,51 +430,41 @@ document.addEventListener("DOMContentLoaded", () => {
         label: location.label,
       });
     }
-
     commitFavorites();
   }
-
+  //build the weather popup
   function createWeatherPopup(weather, location) {
     const content = document.createElement("section");
     content.className = "weather-popup-content";
-
     const heading = document.createElement("h2");
     heading.textContent = weather.locationName;
-
     const weatherVisual = createWeatherVisual(weather);
-
     const labels = weatherLabels[weather.language] || weatherLabels.en;
-
     if (weather.language === "ar") {
       content.dir = "rtl";
       content.lang = "ar";
     }
-
     const details = document.createElement("dl");
     details.className = "weather-popup-details";
     appendWeatherDetail(details, labels.temperature, `${weather.temperature.toFixed(1)} °C`);
     appendWeatherDetail(details, labels.cloudCoverage, `${weather.cloudCoverage}%`);
     appendWeatherDetail(details, labels.humidity, `${weather.humidity}%`);
     appendWeatherDetail(details, labels.windSpeed, `${weather.windSpeed} ${labels.windUnit}`);
-
     const actions = document.createElement("div");
     actions.className = "weather-popup-actions";
-
     const shareButton = document.createElement("button");
     shareButton.className = "weather-share-button";
     shareButton.type = "button";
     shareButton.textContent = "Share";
-
     const shareStatus = document.createElement("p");
     shareStatus.className = "weather-share-status";
     shareStatus.setAttribute("role", "status");
     shareStatus.setAttribute("aria-live", "polite");
-
+    // Share the weather summary when you click share button.
     shareButton.addEventListener("click", () => {
       shareStatus.textContent = "";
       shareWeather(weather, shareStatus);
     });
-
     const favoriteButton = document.createElement("button");
     favoriteButton.className = "weather-share-button weather-favorite-button";
     favoriteButton.type = "button";
@@ -507,36 +474,30 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleFavorite(location);
     });
     activeFavoriteButton = favoriteButton;
-
     actions.append(shareButton, favoriteButton);
     content.append(heading, weatherVisual, details, actions, shareStatus);
     return content;
   }
-
+  //Show a location on the map
   function showLocationOnMap(location, weather) {
     const coordinates = [location.latitude, location.longitude];
-
     if (!searchMarker) {
       map.flyTo(coordinates, 11, { animate: true, duration: 0.8 });
       searchMarker = L.marker(coordinates).addTo(map);
     }
-
     if (weather) {
       searchMarker
         .bindPopup(createWeatherPopup(weather, location), { className: "weather-popup" })
         .openPopup();
     }
   }
-
+  //Search for a location with Nominatim
   async function geocodeLocation(query) {
     const cacheKey = query.toLocaleLowerCase();
-
     if (geocodingCache.has(cacheKey)) {
       return geocodingCache.get(cacheKey);
     }
-
     await waitForRequestSlot();
-
     const parameters = new URLSearchParams({
       format: "jsonv2",
       limit: "1",
@@ -544,7 +505,6 @@ document.addEventListener("DOMContentLoaded", () => {
       "accept-language": getSearchLanguage(query),
     });
     let response;
-
     try {
       response = await fetch(`${nominatimSearchUrl}?${parameters}`, {
         headers: { Accept: "application/json" },
@@ -553,45 +513,35 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       throw createServiceError("network");
     }
-
     if (!response.ok) {
       throw createServiceError("http");
     }
-
     let results;
-
     try {
       results = await response.json();
     } catch {
       throw createServiceError("malformed");
     }
-
     if (!Array.isArray(results)) {
       throw createServiceError("malformed");
     }
-
     if (results.length === 0) {
       geocodingCache.set(cacheKey, null);
       return null;
     }
-
     const location = normalizeLocation(results[0]);
-
     if (!location) {
       throw createServiceError("malformed");
     }
-
     geocodingCache.set(cacheKey, location);
     return location;
   }
-
+  //fetch weather from open weather map
   async function fetchCurrentWeather(location, language = "en") {
     const apiKey = getApiKey();
-
     if (!apiKey) {
       throw createServiceError("missing-key");
     }
-
     const parameters = new URLSearchParams({
       lat: String(location.latitude),
       lon: String(location.longitude),
@@ -600,36 +550,29 @@ document.addEventListener("DOMContentLoaded", () => {
       appid: apiKey,
     });
     let response;
-
     try {
       response = await fetch(`${openWeatherMapUrl}?${parameters}`);
     } catch {
       throw createServiceError("weather-network");
     }
-
     let payload;
-
     try {
       payload = await response.json();
     } catch {
       throw createServiceError("weather-malformed");
     }
-
     if (!response.ok) {
       const providerMessage = typeof payload?.message === "string" ? payload.message.trim() : "";
       throw createServiceError("weather-provider", providerMessage);
     }
-
     return normalizeWeather(payload, location.name);
   }
-
+  //Fetch suggestions from open meteo
   async function fetchSuggestions(query, signal) {
     const cacheKey = query.toLocaleLowerCase();
-
     if (suggestionCache.has(cacheKey)) {
       return suggestionCache.get(cacheKey);
     }
-
     const parameters = new URLSearchParams({
       name: query,
       count: "5",
@@ -637,55 +580,45 @@ document.addEventListener("DOMContentLoaded", () => {
       format: "json",
     });
     let response;
-
     try {
       response = await fetch(`${openMeteoSearchUrl}?${parameters}`, { signal });
     } catch (error) {
       if (error.name === "AbortError") {
         throw error;
       }
-
       throw createServiceError("suggestion-network");
     }
-
     if (!response.ok) {
       throw createServiceError("suggestion-http");
     }
-
     let payload;
-
     try {
       payload = await response.json();
     } catch {
       throw createServiceError("suggestion-malformed");
     }
-
     if (!payload || typeof payload !== "object" || (payload.results !== undefined && !Array.isArray(payload.results))) {
       throw createServiceError("suggestion-malformed");
     }
-
     const locations = Array.isArray(payload.results)
       ? payload.results.map(formatSuggestion).filter(Boolean)
       : [];
-
     suggestionCache.set(cacheKey, locations);
     return locations;
   }
-
+  //Close suggestions
   function closeSuggestions() {
     suggestionList.hidden = true;
     locationInput.setAttribute("aria-expanded", "false");
     locationInput.setAttribute("aria-activedescendant", "");
     activeSuggestionIndex = -1;
   }
-
+  //Update the suggestion
   function updateActiveSuggestion(index) {
     const options = suggestionList.querySelectorAll('[role="option"]');
-
     if (!options.length) {
       return;
     }
-
     activeSuggestionIndex = (index + options.length) % options.length;
     options.forEach((option, optionIndex) => {
       option.setAttribute("aria-selected", String(optionIndex === activeSuggestionIndex));
@@ -694,12 +627,11 @@ document.addEventListener("DOMContentLoaded", () => {
     locationInput.setAttribute("aria-activedescendant", activeOption.id);
     activeOption.scrollIntoView({ block: "nearest" });
   }
-
+  //Render suggestions
   function renderSuggestions(locations) {
     suggestions = locations;
     activeSuggestionIndex = -1;
     suggestionList.replaceChildren();
-
     locations.forEach((location, index) => {
       const option = document.createElement("li");
       option.id = `location-suggestion-${index}`;
@@ -710,20 +642,17 @@ document.addEventListener("DOMContentLoaded", () => {
       option.textContent = location.label;
       suggestionList.append(option);
     });
-
     const hasSuggestions = locations.length > 0;
     suggestionList.hidden = !hasSuggestions;
     locationInput.setAttribute("aria-expanded", String(hasSuggestions));
     locationInput.setAttribute("aria-activedescendant", "");
   }
-
+  //Select a suggestion
   function selectSuggestion(index) {
     const location = suggestions[index];
-
     if (!location) {
       return;
     }
-
     selectedLocation = location;
     locationInput.value = location.label;
     storeLocation(location);
@@ -731,45 +660,37 @@ document.addEventListener("DOMContentLoaded", () => {
     suggestionStatus.textContent = "";
     closeSuggestions();
   }
-
+  //cancel pending suggestion requests
   function clearSuggestionRequest() {
     window.clearTimeout(suggestionTimer);
-
     if (suggestionController) {
       suggestionController.abort();
       suggestionController = null;
     }
   }
-
   function scheduleSuggestions() {
     clearSuggestionRequest();
     const query = locationInput.value.trim();
-
     if (query.length < 2) {
       suggestions = [];
       suggestionStatus.textContent = "";
       closeSuggestions();
       return;
     }
-
     suggestionTimer = window.setTimeout(async () => {
       suggestionController = new AbortController();
       suggestionStatus.textContent = "Loading location suggestions.";
-
       try {
         const locations = await fetchSuggestions(query, suggestionController.signal);
-
         if (locationInput.value.trim() !== query) {
           return;
         }
-
         renderSuggestions(locations);
         suggestionStatus.textContent = locations.length ? `${locations.length} location suggestions available.` : "No location suggestions found.";
       } catch (error) {
         if (error.name === "AbortError") {
           return;
         }
-
         suggestions = [];
         closeSuggestions();
         suggestionStatus.textContent = "Unable to load location suggestions.";
@@ -778,148 +699,118 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, suggestionDelay);
   }
-
+  //get geocoding error messages
   function getGeocodingErrorMessage(error) {
     if (error.message === "http") {
       return "The location service could not complete this search. Please try again.";
     }
-
     if (error.message === "malformed") {
       return "The location service returned an unexpected response. Please try again.";
     }
-
     return "Unable to reach the location service. Check your connection and try again.";
   }
-
+  //get weather error messages
   function getWeatherErrorMessage(error) {
     if (error.message === "missing-key") {
       return "Weather service configuration is missing. Add an OpenWeatherMap API key to js/config.local.js.";
     }
-
     if (error.message === "weather-provider" && error.providerMessage) {
       return `The weather service returned: ${error.providerMessage}`;
     }
-
     if (error.message === "weather-provider") {
       return "The weather service could not complete this request. Please try again.";
     }
-
     if (error.message === "weather-malformed") {
       return "The weather service returned an unexpected response. Please try again.";
     }
-
     return "Unable to reach the weather service. Check your connection and try again.";
   }
-
   locationInput.addEventListener("input", () => {
     selectedLocation = null;
     clearStoredLocation();
     scheduleSuggestions();
   });
-
   locationInput.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown" && !suggestionList.hidden) {
       event.preventDefault();
       updateActiveSuggestion(activeSuggestionIndex + 1);
       return;
     }
-
     if (event.key === "ArrowUp" && !suggestionList.hidden) {
       event.preventDefault();
       updateActiveSuggestion(activeSuggestionIndex - 1);
       return;
     }
-
     if (event.key === "Enter" && !suggestionList.hidden && activeSuggestionIndex >= 0) {
       event.preventDefault();
       selectSuggestion(activeSuggestionIndex);
       return;
     }
-
     if (event.key === "Escape") {
       closeSuggestions();
     }
   });
-
   suggestionList.addEventListener("click", (event) => {
     const option = event.target.closest('[role="option"]');
-
     if (!option || !suggestionList.contains(option)) {
       return;
     }
-
     selectSuggestion(Number.parseInt(option.dataset.index, 10));
     locationInput.focus();
   });
-
   document.addEventListener("pointerdown", (event) => {
     if (!searchControls.contains(event.target)) {
       closeSuggestions();
     }
   });
-
   searchForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     clearSuggestionRequest();
     closeSuggestions();
-
     const query = locationInput.value.trim();
-
     if (!query) {
       showMessage("Please enter a location to search.");
       locationInput.focus();
       return;
     }
-
     const requestId = ++searchRequestId;
     const language = getSearchLanguage(query);
     const isCurrentSearch = () => requestId === searchRequestId;
-
     clearMessage();
     clearStoredWeather();
     clearSearchMarker();
     setLoading(true);
-
     try {
       const location = selectedLocation && selectedLocation.label === query
         ? selectedLocation
         : await geocodeLocation(query);
-
       if (!isCurrentSearch()) {
         return;
       }
-
       if (!location) {
         showMessage("No matching location was found.");
         return;
       }
-
       storeLocation(location);
       showLocationOnMap(location);
       const weather = await fetchCurrentWeather(location, language);
-
       if (!isCurrentSearch()) {
         return;
       }
-
       weather.language = language;
-
       if (language === "ar") {
         weather.locationName = location.name.split(",")[0].trim() || weather.locationName;
       }
-
       storeWeather(weather);
       showLocationOnMap(location, weather);
     } catch (error) {
       if (!isCurrentSearch()) {
         return;
       }
-
       if (error.message === "http" || error.message === "malformed" || error.message === "network") {
         showMessage(getGeocodingErrorMessage(error));
         return;
       }
-
       showMessage(getWeatherErrorMessage(error));
     } finally {
       if (isCurrentSearch()) {
@@ -927,36 +818,28 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
-
   favoritesList.addEventListener("click", (event) => {
     const button = event.target.closest("button");
-
     if (!button || !favoritesList.contains(button)) {
       return;
     }
-
     const index = Number.parseInt(button.dataset.index, 10);
     const favorite = favorites[index];
-
     if (!favorite) {
       return;
     }
-
     if (button.classList.contains("favorite-remove")) {
       favorites.splice(index, 1);
       commitFavorites();
       return;
     }
-
     if (searchButton.disabled) {
       return;
     }
-
     selectedLocation = favorite;
     locationInput.value = favorite.label;
     searchForm.requestSubmit();
   });
-
   favorites = loadFavorites();
   renderFavorites();
 });
